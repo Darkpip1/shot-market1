@@ -3,7 +3,7 @@ const crypto=require("crypto");
 
 const PORT=process.env.PORT||3000;
 const ADMIN_USERNAME=process.env.ADMIN_USERNAME||"Vojta";
-const ADMIN_PASSWORD=process.env.ADMIN_PASSWORD||"";
+const ADMIN_PASSWORD_HASH=process.env.ADMIN_PASSWORD_HASH||"";
 const sessions=new Set();
 
 const data=[
@@ -55,7 +55,7 @@ const server=http.createServer((req,res)=>{
  if(req.method==="GET"&&req.url==="/admin"){res.writeHead(200,{"Content-Type":"text/html; charset=utf-8"});return res.end(isAdmin(req)?adminDashboard():adminLogin());}
  if(req.method==="GET"&&req.url==="/admin/logout"){const cookie=(req.headers.cookie||"").match(/shot_admin=([^;]+)/);if(cookie)sessions.delete(cookie[1]);res.writeHead(302,{Location:"/admin","Set-Cookie":"shot_admin=; Max-Age=0; Path=/; HttpOnly; SameSite=Lax"});return res.end();}
  if(req.method==="POST"&&req.url==="/admin/login"){
-  let body="";req.on("data",c=>body+=c);req.on("end",()=>{const p=new URLSearchParams(body);if(!ADMIN_PASSWORD){res.writeHead(500,{"Content-Type":"text/html; charset=utf-8"});return res.end(adminLogin("Admin heslo není nastavené na serveru."));}if(p.get("username")===ADMIN_USERNAME&&p.get("password")===ADMIN_PASSWORD){const token=crypto.randomBytes(32).toString("hex");sessions.add(token);res.writeHead(302,{Location:"/admin","Set-Cookie":`shot_admin=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=86400`});return res.end();}res.writeHead(401,{"Content-Type":"text/html; charset=utf-8"});res.end(adminLogin("Špatné uživatelské jméno nebo heslo."));});return;
+  let body="";req.on("data",c=>body+=c);req.on("end",()=>{const p=new URLSearchParams(body);if(!ADMIN_PASSWORD_HASH){res.writeHead(500,{"Content-Type":"text/html; charset=utf-8"});return res.end(adminLogin("Admin heslo není nastavené na serveru."));}const passHash=crypto.createHash("sha256").update(p.get("password")||"").digest("hex");if(p.get("username")===ADMIN_USERNAME&&passHash===ADMIN_PASSWORD_HASH){const token=crypto.randomBytes(32).toString("hex");sessions.add(token);res.writeHead(302,{Location:"/admin","Set-Cookie":`shot_admin=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=86400`});return res.end();}res.writeHead(401,{"Content-Type":"text/html; charset=utf-8"});res.end(adminLogin("Špatné uživatelské jméno nebo heslo."));});return;
  }
  res.writeHead(404,{"Content-Type":"text/plain; charset=utf-8"});res.end("404");
 });
